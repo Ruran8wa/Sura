@@ -1,0 +1,173 @@
+# ui/streamlit_app.py
+
+import streamlit as st
+import requests
+from PIL import Image
+import io
+import base64
+
+API_URL = "http://localhost:8000/predict-file"
+
+st.set_page_config(
+    page_title="Gender Classifier", 
+    page_icon="🧠",
+    layout="centered"
+)
+
+# Header
+st.title("🧠 Gender Classifier")
+st.markdown("Upload a facial image, and our AI model will predict the gender with confidence scores.")
+
+# Sidebar with info
+with st.sidebar:
+    st.header("ℹ️ About")
+    st.write("This model uses a trained CNN to classify gender from facial images.")
+    st.write("**Accuracy:** ~80%")
+    st.write("**Classes:** Male, Female")
+    
+    st.header("📊 Model Stats")
+    st.metric("Overall Accuracy", "80%")
+    st.metric("Avg Confidence", "87.6%")
+
+# Main content
+uploaded_file = st.file_uploader(
+    "Choose an image file", 
+    type=["jpg", "jpeg", "png"],
+    help="Upload a clear facial image for best results"
+)
+
+if uploaded_file is not None:
+    # Display the uploaded image
+    image = Image.open(uploaded_file)
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+    
+    with col2:
+        st.write("**Image Details:**")
+        st.write(f"📁 Filename: {uploaded_file.name}")
+        st.write(f"📏 Size: {image.size}")
+        st.write(f"🎨 Mode: {image.mode}")
+        st.write(f"💾 File size: {len(uploaded_file.getvalue())} bytes")
+
+    # Prediction button
+    if st.button("🔮 Predict Gender", type="primary"):
+        with st.spinner("🤖 Analyzing image..."):
+            try:
+                # Reset file pointer to beginning
+                uploaded_file.seek(0)
+                
+                # Prepare files for request
+                files = {
+                    "file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+                }
+                
+                # Make API request
+                response = requests.post(API_URL, files=files, timeout=30)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    # Display results
+                    st.success("✅ Prediction Complete!")
+                    
+                    # Main prediction result
+                    predicted_gender = result['predicted_gender'].capitalize()
+                    confidence = result['confidence']
+                    
+                    # Use different emojis based on prediction
+                    gender_emoji = "👨" if predicted_gender.lower() == "male" else "👩"
+                    
+                    st.markdown(f"## {gender_emoji} Predicted Gender: **{predicted_gender}**")
+                    
+                    # Confidence meter
+                    st.markdown(f"### 🎯 Confidence: **{confidence:.1%}**")
+                    st.progress(confidence)
+                    
+                    # Detailed probabilities
+                    if 'probabilities' in result:
+                        st.markdown("### 📊 Detailed Probabilities:")
+                        probs = result['probabilities']
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.metric(
+                                "👩 Female", 
+                                f"{probs['female']:.1%}",
+                                delta=None
+                            )
+                        
+                        with col2:
+                            st.metric(
+                                "👨 Male", 
+                                f"{probs['male']:.1%}",
+                                delta=None
+                            )
+                    
+                    # Confidence interpretation
+                    if confidence >= 0.8:
+                        st.info("🔥 High confidence prediction!")
+                    elif confidence >= 0.6:
+                        st.info("✨ Good confidence prediction!")
+                    else:
+                        st.warning("⚠️ Low confidence - image quality might affect results.")
+                
+                else:
+                    st.error(f"❌ API Error: {response.status_code}")
+                    if response.text:
+                        st.code(response.text)
+                        
+            except requests.exceptions.ConnectionError:
+                st.error("❌ Cannot connect to API. Make sure the FastAPI server is running at http://localhost:8000")
+                st.info("Start the API with: `uvicorn api.app:app --host 127.0.0.1 --port 8000`")
+            except requests.exceptions.Timeout:
+                st.error("⏰ Request timed out. The server might be overloaded.")
+            except Exception as e:
+                st.error(f"❌ Unexpected error: {str(e)}")
+
+# Footer
+st.markdown("---")
+st.markdown("Built with ❤️ using Streamlit and FastAPI | Gender Classification AI")
+
+# Instructions
+with st.expander("📖 How to use"):
+    st.markdown("""
+    1. **Upload an image** using the file uploader above
+    2. **Make sure it's a clear facial image** for best results
+    3. **Click 'Predict Gender'** to get the AI prediction
+    4. **View the results** with confidence scores and probabilities
+    
+    **Tips for better results:**
+    - Use clear, well-lit photos
+    - Ensure the face is clearly visible
+    - Avoid heavily filtered or edited images
+    - Higher resolution images generally work better
+    """)
+
+
+# API Status check
+with st.expander("🔧 API Status"):
+    if st.button("Check API Status"):
+        try:
+            health_response = requests.get("http://localhost:8000/", timeout=5)
+            if health_response.status_code == 200:
+                st.success("✅ API is online and responding")
+                st.json(health_response.json())
+            else:
+                st.warning(f"⚠️ API responded with status: {health_response.status_code}")
+        except:
+            st.error("❌ API is not accessible. Make sure it's running on http://localhost:8000")
+
+# Retrain Model button
+if st.button("Retrain Model"):
+    with st.spinner("Retraining model..."):
+        response = requests.post("http://localhost:8000/retrain")  # or your deployed URL
+        if response.status_code == 200:
+            st.success("Model retrained successfully!")
+            st.json(response.json())
+        else:
+            st.error("Retraining failed.")
+            st.json(response.json())
