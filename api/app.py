@@ -27,37 +27,75 @@ model = None
 class_names = ['female', 'male']
 
 def load_model_direct():
-    """Load model directly without importing prediction.py"""
+    """Load model directly with comprehensive path checking"""
     global model
     
     try:
         import tensorflow as tf
         tf.get_logger().setLevel('ERROR')
         
-        # Try multiple model paths
+        # Get current working directory
+        current_dir = os.getcwd()
+        print(f"🔍 Current working directory: {current_dir}")
+        
+        # List all files and directories to debug
+        print(f"📁 Files in current directory: {os.listdir('.')}")
+        
+        # Try multiple model paths (including Railway-specific paths)
         model_paths = [
-            'models/gender_classifier.keras',
-            '../models/gender_classifier.keras',
-            'src/models/gender_classifier.keras',
-            './models/gender_classifier.keras'
+            'models/gender_classifier.keras',           # Standard path
+            './models/gender_classifier.keras',         # Explicit relative path
+            '../models/gender_classifier.keras',        # Parent directory
+            'src/models/gender_classifier.keras',       # In src folder
+            './src/models/gender_classifier.keras',     # Explicit src path
+            '/app/models/gender_classifier.keras',      # Railway absolute path
+            '/opt/railway/models/gender_classifier.keras', # Alternative Railway path
         ]
         
-        for model_path in model_paths:
+        # Also check if models directory exists
+        models_dirs = ['models', './models', '../models', 'src/models', './src/models']
+        for models_dir in models_dirs:
+            if os.path.exists(models_dir):
+                print(f"📁 Found models directory: {models_dir}")
+                print(f"   Contents: {os.listdir(models_dir)}")
+                
+                # Add any .keras files found in this directory
+                for file in os.listdir(models_dir):
+                    if file.endswith('.keras') or file.endswith('.h5'):
+                        full_path = os.path.join(models_dir, file)
+                        if full_path not in model_paths:
+                            model_paths.append(full_path)
+        
+        print(f"🔍 Trying {len(model_paths)} model paths...")
+        
+        for i, model_path in enumerate(model_paths, 1):
+            print(f"📥 Attempt {i}/{len(model_paths)}: {model_path}")
+            
             if os.path.exists(model_path):
                 try:
-                    print(f"📥 Loading model from: {model_path}")
+                    print(f"   ✅ File exists, size: {os.path.getsize(model_path)} bytes")
                     model = tf.keras.models.load_model(model_path, compile=False)
-                    print(f"✅ Model loaded successfully from: {model_path}")
+                    print(f"   🎉 Model loaded successfully from: {model_path}")
+                    
+                    # Test the model with a dummy prediction
+                    test_input = tf.random.normal((1, 160, 160, 3))
+                    test_pred = model.predict(test_input, verbose=0)
+                    print(f"   ✅ Model test prediction successful: {test_pred.shape}")
+                    
                     return True
                 except Exception as e:
-                    print(f"❌ Failed to load {model_path}: {e}")
+                    print(f"   ❌ Failed to load {model_path}: {str(e)[:100]}...")
                     continue
+            else:
+                print(f"   ❌ File does not exist: {model_path}")
         
-        print("❌ No model file found")
+        print("❌ No model file found in any of the attempted paths")
         return False
         
     except Exception as e:
         print(f"❌ Failed to load model: {e}")
+        import traceback
+        print(traceback.format_exc())
         return False
 
 def predict_gender_direct(img_path):
@@ -132,17 +170,51 @@ def read_root():
         "model_type": str(type(model)) if model else None
     }
 
-@app.get("/debug")
-def debug_info():
-    """Debug endpoint to check system status"""
+@app.get("/debug-detailed")
+def debug_detailed():
+    """Comprehensive debug endpoint"""
+    import sys
+    
+    def safe_listdir(path):
+        try:
+            if os.path.exists(path):
+                return os.listdir(path)
+            else:
+                return f"Path does not exist: {path}"
+        except Exception as e:
+            return f"Error accessing path: {str(e)}"
+    
+    def find_keras_files(directory):
+        """Recursively find all .keras files"""
+        keras_files = []
+        try:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    if file.endswith('.keras') or file.endswith('.h5'):
+                        keras_files.append(os.path.join(root, file))
+        except Exception as e:
+            return [f"Error walking directory: {str(e)}"]
+        return keras_files
+    
     return {
+        "python_version": sys.version,
         "current_directory": os.getcwd(),
         "model_loaded": model is not None,
         "model_type": str(type(model)) if model else None,
-        "models_folder_exists": os.path.exists('models'),
-        "model_file_exists": os.path.exists('models/gender_classifier.keras'),
-        "working_directory_files": os.listdir('.'),
-        "models_directory_files": os.listdir('models') if os.path.exists('models') else "No models directory"
+        "environment_variables": {
+            "PORT": os.environ.get("PORT", "Not set"),
+            "RAILWAY_ENVIRONMENT": os.environ.get("RAILWAY_ENVIRONMENT", "Not set"),
+            "PWD": os.environ.get("PWD", "Not set")
+        },
+        "file_system": {
+            "root_directory": safe_listdir('.'),
+            "models_directory": safe_listdir('models'),
+            "src_directory": safe_listdir('src'),
+            "parent_directory": safe_listdir('..'),
+        },
+        "keras_files_found": find_keras_files('.'),
+        "tensorflow_version": tf.__version__ if 'tensorflow' in sys.modules else "Not imported",
+        "sys_path": sys.path[:5]  # First 5 entries only
     }
 
 @app.post("/test-prediction")
