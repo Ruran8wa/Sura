@@ -1,5 +1,3 @@
-# src/retrain.py
-
 import os
 import datetime
 import tensorflow as tf
@@ -8,7 +6,6 @@ from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-from src.model import create_model
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -21,6 +18,7 @@ EPOCHS = 10
 LEARNING_RATE = 1e-4
 
 def create_model():
+    """Create and compile the gender classification model"""
     base_model = MobileNetV2(input_shape=(*IMG_SIZE, 3), include_top=False, weights='imagenet')
     base_model.trainable = False
 
@@ -36,45 +34,71 @@ def create_model():
     return model
 
 def retrain():
-    print("[INFO] Loading data...")
+    """Retrain the gender classification model"""
+    try:
+        print("[INFO] Starting retraining process...")
+        
+        # Check if training directory exists
+        if not os.path.exists(TRAIN_DIR):
+            raise FileNotFoundError(f"Training directory not found: {TRAIN_DIR}")
+        
+        # Create models directory if it doesn't exist
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        
+        print("[INFO] Loading data...")
 
-    datagen = ImageDataGenerator(
-        rescale=1./255,
-        validation_split=0.2
-    )
+        datagen = ImageDataGenerator(
+            rescale=1./255,
+            validation_split=0.2
+        )
 
-    train_generator = datagen.flow_from_directory(
-        TRAIN_DIR,
-        target_size=IMG_SIZE,
-        batch_size=BATCH_SIZE,
-        class_mode='categorical',
-        subset='training',
-        shuffle=True
-    )
+        train_generator = datagen.flow_from_directory(
+            TRAIN_DIR,
+            target_size=IMG_SIZE,
+            batch_size=BATCH_SIZE,
+            class_mode='categorical',
+            subset='training',
+            shuffle=True
+        )
 
-    val_generator = datagen.flow_from_directory(
-        TRAIN_DIR,
-        target_size=IMG_SIZE,
-        batch_size=BATCH_SIZE,
-        class_mode='categorical',
-        subset='validation'
-    )
+        val_generator = datagen.flow_from_directory(
+            TRAIN_DIR,
+            target_size=IMG_SIZE,
+            batch_size=BATCH_SIZE,
+            class_mode='categorical',
+            subset='validation'
+        )
 
-    model = create_model()
+        print(f"[INFO] Found {train_generator.samples} training samples")
+        print(f"[INFO] Found {val_generator.samples} validation samples")
 
-    print("[INFO] Starting training...")
-    history = model.fit(
-        train_generator,
-        validation_data=val_generator,
-        epochs=EPOCHS
-    )
+        model = create_model()
 
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_path = os.path.join(MODEL_DIR, f"gender_classifier_v2_{timestamp}.keras")
-    model.save(model_path)
+        print("[INFO] Starting training...")
+        history = model.fit(
+            train_generator,
+            validation_data=val_generator,
+            epochs=EPOCHS,
+            verbose=1
+        )
 
-    print(f"[INFO] Model retrained and saved to: {model_path}")
-    return model_path
+        # Save model with timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        model_path = os.path.join(MODEL_DIR, f"gender_classifier_v2_{timestamp}.keras")
+        model.save(model_path)
+        
+        # Also save as default model
+        default_path = os.path.join(MODEL_DIR, "gender_classifier.keras")
+        model.save(default_path)
+
+        print(f"[INFO] Model retrained and saved to: {model_path}")
+        print(f"[INFO] Default model updated: {default_path}")
+        
+        return model_path, history
+        
+    except Exception as e:
+        print(f"[ERROR] Retraining failed: {e}")
+        raise
 
 if __name__ == "__main__":
     retrain()
