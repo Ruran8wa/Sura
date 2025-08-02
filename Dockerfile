@@ -13,4 +13,4 @@ ENV PORT 8000
 EXPOSE $PORT
 
 # Start uvicorn with host 0.0.0.0 and the port Railway provides
-CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn api.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
