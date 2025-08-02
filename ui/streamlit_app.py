@@ -5,8 +5,11 @@ import requests
 from PIL import Image
 import io
 import base64
+import os
 
-API_URL = "http://localhost:8000/predict-file"
+# Configuration - use Railway backend URL
+BACKEND_URL = "https://sura-production.up.railway.app"
+API_URL = f"{BACKEND_URL}/predict-file"
 
 st.set_page_config(
     page_title="Gender Classifier", 
@@ -121,8 +124,8 @@ if uploaded_file is not None:
                         st.code(response.text)
                         
             except requests.exceptions.ConnectionError:
-                st.error("❌ Cannot connect to API. Make sure the FastAPI server is running at http://localhost:8000")
-                st.info("Start the API with: `uvicorn api.app:app --host 127.0.0.1 --port 8000`")
+                st.error(f"❌ Cannot connect to API. Make sure the FastAPI server is running at {BACKEND_URL}")
+                st.info("Backend URL: " + BACKEND_URL)
             except requests.exceptions.Timeout:
                 st.error("⏰ Request timed out. The server might be overloaded.")
             except Exception as e:
@@ -152,19 +155,19 @@ with st.expander("📖 How to use"):
 with st.expander("🔧 API Status"):
     if st.button("Check API Status"):
         try:
-            health_response = requests.get("http://localhost:8000/", timeout=5)
+            health_response = requests.get(f"{BACKEND_URL}/", timeout=5)
             if health_response.status_code == 200:
                 st.success("✅ API is online and responding")
                 st.json(health_response.json())
             else:
                 st.warning(f"⚠️ API responded with status: {health_response.status_code}")
         except:
-            st.error("❌ API is not accessible. Make sure it's running on http://localhost:8000")
+            st.error(f"❌ API is not accessible. Make sure it's running at {BACKEND_URL}")
 
 # Retrain Model button
 if st.button("Retrain Model"):
     with st.spinner("Retraining model..."):
-        response = requests.post("http://localhost:8000/retrain")  # or your deployed URL
+        response = requests.post(f"{BACKEND_URL}/retrain")
         if response.status_code == 200:
             st.success("Model retrained successfully!")
             st.json(response.json())
