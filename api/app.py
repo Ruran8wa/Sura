@@ -1,11 +1,10 @@
-# api/app.py - Complete Fixed Version with Comprehensive Debugging
+# api/app.py - Final Fixed Version
 
 import os
 import io
 import sys
 import base64
 import tempfile
-from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -28,145 +27,73 @@ model = None
 class_names = ['female', 'male']
 
 def load_model_direct():
-    """Comprehensive model loading with detailed debugging"""
+    """Load model directly with comprehensive path checking"""
     global model
     
     try:
         import tensorflow as tf
         tf.get_logger().setLevel('ERROR')
         
-        print("🔍 DEBUGGING MODEL LOADING ISSUE")
-        print("=" * 50)
-        
-        # 1. Environment Information
+        # Get current working directory
         current_dir = os.getcwd()
-        print(f"📁 Current directory: {current_dir}")
-        print(f"🐍 Python executable: {sys.executable}")
-        print(f"🧠 TensorFlow version: {tf.__version__}")
+        print(f"🔍 Current working directory: {current_dir}")
         
-        # 2. Check if we're on Railway
-        is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
-        print(f"🚂 Running on Railway: {is_railway}")
+        # List all files and directories to debug
+        print(f"📁 Files in current directory: {os.listdir('.')}")
         
-        # 3. List ALL files recursively to find any .keras files
-        def find_all_files(directory, max_depth=3):
-            """Find all files recursively with depth limit"""
-            all_files = []
-            try:
-                for root, dirs, files in os.walk(directory):
-                    # Limit depth to avoid infinite recursion
-                    level = root.replace(directory, '').count(os.sep)
-                    if level < max_depth:
-                        for file in files:
-                            full_path = os.path.join(root, file)
-                            all_files.append(full_path)
-            except Exception as e:
-                print(f"❌ Error walking {directory}: {e}")
-            return all_files
+        # Try multiple model paths (including Railway-specific paths)
+        model_paths = [
+            'models/gender_classifier.keras',           # Standard path
+            './models/gender_classifier.keras',         # Explicit relative path
+            '../models/gender_classifier.keras',        # Parent directory
+            'src/models/gender_classifier.keras',       # In src folder
+            './src/models/gender_classifier.keras',     # Explicit src path
+            '/app/models/gender_classifier.keras',      # Railway absolute path
+            '/opt/railway/models/gender_classifier.keras', # Alternative Railway path
+        ]
         
-        print("\n📂 COMPLETE FILE SYSTEM SCAN:")
-        all_files = find_all_files('.', max_depth=4)
-        keras_files = [f for f in all_files if f.endswith(('.keras', '.h5', '.pb'))]
+        # Also check if models directory exists
+        models_dirs = ['models', './models', '../models', 'src/models', './src/models']
+        for models_dir in models_dirs:
+            if os.path.exists(models_dir):
+                print(f"📁 Found models directory: {models_dir}")
+                print(f"   Contents: {os.listdir(models_dir)}")
+                
+                # Add any .keras files found in this directory
+                for file in os.listdir(models_dir):
+                    if file.endswith('.keras') or file.endswith('.h5'):
+                        full_path = os.path.join(models_dir, file)
+                        if full_path not in model_paths:
+                            model_paths.append(full_path)
         
-        print(f"📊 Total files found: {len(all_files)}")
-        print(f"🧠 Model files found: {len(keras_files)}")
+        print(f"🔍 Trying {len(model_paths)} model paths...")
         
-        if keras_files:
-            print("\n🎯 FOUND MODEL FILES:")
-            for i, keras_file in enumerate(keras_files, 1):
-                size = os.path.getsize(keras_file) if os.path.exists(keras_file) else 0
-                print(f"   {i}. {keras_file} ({size:,} bytes)")
-        else:
-            print("\n❌ NO MODEL FILES FOUND!")
-            print("   This is likely why your model isn't loading.")
-            print("   Expected files: .keras, .h5, or .pb files")
-        
-        # 4. Check specific directories
-        print("\n📁 DIRECTORY CONTENTS:")
-        check_dirs = ['.', 'models', 'src', 'api', 'ui', '../models', './models']
-        for check_dir in check_dirs:
-            if os.path.exists(check_dir):
-                try:
-                    contents = os.listdir(check_dir)
-                    print(f"   📂 {check_dir}/: {contents}")
-                except Exception as e:
-                    print(f"   ❌ Error listing {check_dir}: {e}")
-            else:
-                print(f"   ❌ {check_dir}: Does not exist")
-        
-        # 5. Try to load model from found files
-        if keras_files:
-            print(f"\n🔄 ATTEMPTING TO LOAD {len(keras_files)} MODEL FILES:")
+        for i, model_path in enumerate(model_paths, 1):
+            print(f"📥 Attempt {i}/{len(model_paths)}: {model_path}")
             
-            for i, model_path in enumerate(keras_files, 1):
-                print(f"\n📥 Attempt {i}/{len(keras_files)}: {model_path}")
-                
-                if not os.path.exists(model_path):
-                    print(f"   ❌ File doesn't exist")
-                    continue
-                
+            if os.path.exists(model_path):
                 try:
-                    file_size = os.path.getsize(model_path)
-                    print(f"   📊 File size: {file_size:,} bytes")
+                    print(f"   ✅ File exists, size: {os.path.getsize(model_path)} bytes")
+                    model = tf.keras.models.load_model(model_path, compile=False)
+                    print(f"   🎉 Model loaded successfully from: {model_path}")
                     
-                    if file_size == 0:
-                        print(f"   ❌ File is empty")
-                        continue
+                    # Test the model with a dummy prediction
+                    test_input = tf.random.normal((1, 160, 160, 3))
+                    test_pred = model.predict(test_input, verbose=0)
+                    print(f"   ✅ Model test prediction successful: {test_pred.shape}")
                     
-                    # Try different loading methods
-                    loading_methods = [
-                        ("compile=False", lambda: tf.keras.models.load_model(model_path, compile=False)),
-                        ("safe_mode=False", lambda: tf.keras.models.load_model(model_path, compile=False, safe_mode=False)),
-                        ("standard", lambda: tf.keras.models.load_model(model_path))
-                    ]
-                    
-                    for method_name, load_func in loading_methods:
-                        try:
-                            print(f"   🔧 Trying {method_name}...")
-                            model = load_func()
-                            print(f"   ✅ SUCCESS! Model loaded with {method_name}")
-                            
-                            # Test the model
-                            print(f"   🧪 Testing model...")
-                            test_input = tf.random.normal((1, 160, 160, 3))
-                            test_pred = model.predict(test_input, verbose=0)
-                            print(f"   ✅ Model test successful! Output shape: {test_pred.shape}")
-                            
-                            return True
-                            
-                        except Exception as e:
-                            print(f"   ❌ {method_name} failed: {str(e)[:100]}...")
-                            continue
-                
+                    return True
                 except Exception as e:
-                    print(f"   ❌ Error with {model_path}: {str(e)[:100]}...")
+                    print(f"   ❌ Failed to load {model_path}: {str(e)[:100]}...")
                     continue
+            else:
+                print(f"   ❌ File does not exist: {model_path}")
         
-        # 6. If no model files found, provide guidance
-        print("\n" + "=" * 50)
-        print("🚨 MODEL LOADING FAILED!")
-        print("=" * 50)
-        
-        if not keras_files:
-            print("❌ ROOT CAUSE: No model files found in the deployment")
-            print("\n🔧 SOLUTIONS:")
-            print("1. Check if your model file is in your GitHub repository")
-            print("2. Make sure 'models/gender_classifier.keras' is not in .gitignore")
-            print("3. Verify the model file was committed and pushed to GitHub")
-            print("4. Consider using Git LFS for large model files")
-            print("5. Check if Railway has file size limits for your plan")
-        else:
-            print("❌ ROOT CAUSE: Model files found but couldn't load any of them")
-            print("\n🔧 SOLUTIONS:")
-            print("1. The model files might be corrupted")
-            print("2. TensorFlow version mismatch")
-            print("3. Model was saved with different TensorFlow version")
-            print("4. Try retraining and saving the model with current TensorFlow version")
-        
+        print("❌ No model file found in any of the attempted paths")
         return False
         
     except Exception as e:
-        print(f"❌ CRITICAL ERROR in load_model_direct: {e}")
+        print(f"❌ Failed to load model: {e}")
         import traceback
         print(traceback.format_exc())
         return False
@@ -243,124 +170,52 @@ def read_root():
         "model_type": str(type(model)) if model else None
     }
 
-@app.get("/debug")
-def debug_info():
-    """Debug endpoint to check system status"""
+@app.get("/debug-detailed")
+def debug_detailed():
+    """Comprehensive debug endpoint"""
+    import sys
+    
+    def safe_listdir(path):
+        try:
+            if os.path.exists(path):
+                return os.listdir(path)
+            else:
+                return f"Path does not exist: {path}"
+        except Exception as e:
+            return f"Error accessing path: {str(e)}"
+    
+    def find_keras_files(directory):
+        """Recursively find all .keras files"""
+        keras_files = []
+        try:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    if file.endswith('.keras') or file.endswith('.h5'):
+                        keras_files.append(os.path.join(root, file))
+        except Exception as e:
+            return [f"Error walking directory: {str(e)}"]
+        return keras_files
+    
     return {
+        "python_version": sys.version,
         "current_directory": os.getcwd(),
         "model_loaded": model is not None,
         "model_type": str(type(model)) if model else None,
-        "models_folder_exists": os.path.exists('models'),
-        "model_file_exists": os.path.exists('models/gender_classifier.keras'),
-        "working_directory_files": os.listdir('.'),
-        "models_directory_files": os.listdir('models') if os.path.exists('models') else "No models directory"
-    }
-
-@app.get("/debug-comprehensive")
-def debug_comprehensive():
-    """Most comprehensive debug information"""
-    import sys
-    import platform
-    
-    def safe_operation(operation, default="Error"):
-        try:
-            return operation()
-        except Exception as e:
-            return f"{default}: {str(e)}"
-    
-    # Force a model load attempt
-    print("\n🔄 FORCING MODEL LOAD ATTEMPT:")
-    load_success = load_model_direct()
-    
-    return {
-        "timestamp": str(datetime.now()),
-        "model_load_attempt_result": load_success,
-        "model_loaded": model is not None,
-        "model_type": str(type(model)) if model else None,
-        
-        "system_info": {
-            "platform": platform.platform(),
-            "python_version": sys.version,
-            "tensorflow_version": safe_operation(lambda: __import__('tensorflow').__version__, "Not available"),
-            "current_directory": os.getcwd(),
-            "executable": sys.executable,
-        },
-        
-        "environment": {
-            "RAILWAY_ENVIRONMENT": os.environ.get("RAILWAY_ENVIRONMENT", "Not set"),
+        "environment_variables": {
             "PORT": os.environ.get("PORT", "Not set"),
-            "PWD": os.environ.get("PWD", "Not set"),
-            "HOME": os.environ.get("HOME", "Not set"),
+            "RAILWAY_ENVIRONMENT": os.environ.get("RAILWAY_ENVIRONMENT", "Not set"),
+            "PWD": os.environ.get("PWD", "Not set")
         },
-        
         "file_system": {
-            "root_files": safe_operation(lambda: os.listdir('.'), []),
-            "models_exists": os.path.exists('models'),
-            "models_files": safe_operation(lambda: os.listdir('models') if os.path.exists('models') else [], []),
-            "src_exists": os.path.exists('src'),
-            "api_exists": os.path.exists('api'),
-            "ui_exists": os.path.exists('ui'),
+            "root_directory": safe_listdir('.'),
+            "models_directory": safe_listdir('models'),
+            "src_directory": safe_listdir('src'),
+            "parent_directory": safe_listdir('..'),
         },
-        
-        "keras_files_scan": safe_operation(lambda: [
-            f for f in [
-                os.path.join(root, file) 
-                for root, dirs, files in os.walk('.') 
-                for file in files
-            ] if f.endswith(('.keras', '.h5', '.pb'))
-        ][:10], []),  # Limit to first 10 results
-        
-        "disk_usage": safe_operation(lambda: {
-            "total_mb": sum(os.path.getsize(os.path.join(dirpath, filename))
-                        for dirpath, dirnames, filenames in os.walk('.')
-                        for filename in filenames) / (1024*1024)  # MB
-        }, {}),
+        "keras_files_found": find_keras_files('.'),
+        "tensorflow_version": tf.__version__ if 'tensorflow' in sys.modules else "Not imported",
+        "sys_path": sys.path[:5]  # First 5 entries only
     }
-
-@app.post("/create-dummy-model")
-def create_dummy_model():
-    """Create a simple dummy model to test if TensorFlow works"""
-    try:
-        import tensorflow as tf
-        
-        # Create a simple model
-        dummy_model = tf.keras.Sequential([
-            tf.keras.layers.Dense(10, activation='relu', input_shape=(160, 160, 3)),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(2, activation='softmax')
-        ])
-        
-        # Test prediction
-        test_input = tf.random.normal((1, 160, 160, 3))
-        prediction = dummy_model.predict(test_input, verbose=0)
-        
-        # Try to save model (this will fail on Railway due to ephemeral storage)
-        save_success = False
-        save_error = None
-        try:
-            if not os.path.exists('models'):
-                os.makedirs('models')
-            dummy_model.save('models/dummy_model.keras')
-            save_success = True
-        except Exception as e:
-            save_error = str(e)
-        
-        return {
-            "tensorflow_works": True,
-            "model_creation_works": True,
-            "prediction_works": True,
-            "prediction_shape": prediction.shape,
-            "model_save_works": save_success,
-            "save_error": save_error if not save_success else None,
-            "message": "TensorFlow is working properly"
-        }
-        
-    except Exception as e:
-        return {
-            "tensorflow_works": False,
-            "error": str(e),
-            "message": "TensorFlow has issues"
-        }
 
 @app.post("/test-prediction")
 def test_prediction():
@@ -418,9 +273,10 @@ def predict_base64(payload: ImagePayload):
 async def predict_upload(file: UploadFile = File(...)):
     print(f"📥 Received file: {file.filename} ({file.content_type})")
     
-    if model is None:
-        print("❌ Model is None")
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    # ✅ FIX: Don't check model here, let predict_gender_direct handle it
+    # if model is None:
+    #     print("❌ Model is None")
+    #     raise HTTPException(status_code=503, detail="Model not loaded")
     
     try:
         # Validate file type
@@ -440,13 +296,16 @@ async def predict_upload(file: UploadFile = File(...)):
         
         try:
             print("🔮 Making prediction...")
-            result = predict_gender_direct(temp_path)
+            result = predict_gender_direct(temp_path)  # ✅ This will load model if needed
             print(f"📊 Prediction result: {result}")
             
+            # Check if prediction failed
+            if isinstance(result, dict) and 'error' in result:
+                raise HTTPException(status_code=503, detail=result['error'])
+            
             # Add metadata if successful
-            if isinstance(result, dict) and 'error' not in result:
-                result["filename"] = file.filename
-                result["file_size"] = len(contents)
+            result["filename"] = file.filename
+            result["file_size"] = len(contents)
             
             return JSONResponse(content=result)
         finally:
@@ -454,6 +313,8 @@ async def predict_upload(file: UploadFile = File(...)):
                 os.remove(temp_path)
                 print(f"🗑️ Cleaned up temp file")
                 
+    except HTTPException:
+        raise
     except Exception as e:
         error_msg = f"Prediction failed: {str(e)}"
         print(f"❌ {error_msg}")
@@ -489,6 +350,4 @@ def retrain_model(background_tasks: BackgroundTasks):
 
 if __name__ == "__main__":
     import uvicorn
-    # Use Railway's PORT environment variable, fallback to 8000 for local development
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
