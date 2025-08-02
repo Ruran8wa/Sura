@@ -39,7 +39,8 @@ def load_model():
         
         # Try to load model from standard paths
         model_paths = [
-            '../models/gender_classifier.keras',
+            'models/gender_classifier.keras',
+            '../models/gender_classifier.keras'
         ]
         
         for model_path in model_paths:
