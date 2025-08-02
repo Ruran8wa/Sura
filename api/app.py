@@ -44,11 +44,14 @@ def load_model_direct():
         # Try multiple model paths (including Railway-specific paths)
         model_paths = [
             'models/gender_classifier.keras',           # Standard path
+            'models/test_model_small.keras',            # Smaller fallback model
             './models/gender_classifier.keras',         # Explicit relative path
+            './models/test_model_small.keras',          # Smaller fallback
             '../models/gender_classifier.keras',        # Parent directory
             'src/models/gender_classifier.keras',       # In src folder
             './src/models/gender_classifier.keras',     # Explicit src path
             '/app/models/gender_classifier.keras',      # Railway absolute path
+            '/app/models/test_model_small.keras',       # Railway small model
             '/opt/railway/models/gender_classifier.keras', # Alternative Railway path
         ]
         
