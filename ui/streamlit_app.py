@@ -73,55 +73,67 @@ if uploaded_file is not None:
                 if response.status_code == 200:
                     result = response.json()
                     
-                    # Display results
-                    st.success("✅ Prediction Complete!")
+                    # Debug: Show the raw response
+                    st.write("**Debug - API Response:**")
+                    st.json(result)
                     
-                    # Main prediction result
-                    predicted_gender = result['predicted_gender'].capitalize()
-                    confidence = result['confidence']
-                    
-                    # Use different emojis based on prediction
-                    gender_emoji = "👨" if predicted_gender.lower() == "male" else "👩"
-                    
-                    st.markdown(f"## {gender_emoji} Predicted Gender: **{predicted_gender}**")
-                    
-                    # Confidence meter
-                    st.markdown(f"### 🎯 Confidence: **{confidence:.1%}**")
-                    st.progress(confidence)
-                    
-                    # Detailed probabilities
-                    if 'probabilities' in result:
-                        st.markdown("### 📊 Detailed Probabilities:")
-                        probs = result['probabilities']
+                    # Check if the response contains an error
+                    if 'error' in result:
+                        st.error(f"❌ Prediction Error: {result['error']}")
+                    elif 'predicted_gender' in result:
+                        # Display results
+                        st.success("✅ Prediction Complete!")
                         
-                        col1, col2 = st.columns(2)
+                        # Main prediction result
+                        predicted_gender = result['predicted_gender'].capitalize()
+                        confidence = result.get('confidence', 0)
                         
-                        with col1:
-                            st.metric(
-                                "👩 Female", 
-                                f"{probs['female']:.1%}",
-                                delta=None
-                            )
+                        # Use different emojis based on prediction
+                        gender_emoji = "👨" if predicted_gender.lower() == "male" else "👩"
                         
-                        with col2:
-                            st.metric(
-                                "👨 Male", 
-                                f"{probs['male']:.1%}",
-                                delta=None
-                            )
-                    
-                    # Confidence interpretation
-                    if confidence >= 0.8:
-                        st.info("🔥 High confidence prediction!")
-                    elif confidence >= 0.6:
-                        st.info("✨ Good confidence prediction!")
+                        st.markdown(f"## {gender_emoji} Predicted Gender: **{predicted_gender}**")
+                        
+                        # Confidence meter
+                        st.markdown(f"### 🎯 Confidence: **{confidence:.1%}**")
+                        st.progress(confidence)
+                        
+                        # Detailed probabilities
+                        if 'probabilities' in result:
+                            st.markdown("### 📊 Detailed Probabilities:")
+                            probs = result['probabilities']
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                st.metric(
+                                    "👩 Female", 
+                                    f"{probs.get('female', 0):.1%}",
+                                    delta=None
+                                )
+                            
+                            with col2:
+                                st.metric(
+                                    "👨 Male", 
+                                    f"{probs.get('male', 0):.1%}",
+                                    delta=None
+                                )
+                        
+                        # Confidence interpretation
+                        if confidence >= 0.8:
+                            st.info("🔥 High confidence prediction!")
+                        elif confidence >= 0.6:
+                            st.info("✨ Good confidence prediction!")
+                        else:
+                            st.warning("⚠️ Low confidence - image quality might affect results.")
                     else:
-                        st.warning("⚠️ Low confidence - image quality might affect results.")
+                        st.error("❌ Unexpected API response format")
+                        st.write("Expected 'predicted_gender' in response, but got:")
+                        st.json(result)
                 
                 else:
                     st.error(f"❌ API Error: {response.status_code}")
-                    if response.text:
-                        st.code(response.text)
+                    st.write("Response text:")
+                    st.code(response.text)
                         
             except requests.exceptions.ConnectionError:
                 st.error(f"❌ Cannot connect to API. Make sure the FastAPI server is running at {BACKEND_URL}")
@@ -130,6 +142,8 @@ if uploaded_file is not None:
                 st.error("⏰ Request timed out. The server might be overloaded.")
             except Exception as e:
                 st.error(f"❌ Unexpected error: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
 # Footer
 st.markdown("---")
@@ -150,7 +164,6 @@ with st.expander("📖 How to use"):
     - Higher resolution images generally work better
     """)
 
-
 # API Status check
 with st.expander("🔧 API Status"):
     if st.button("Check API Status"):
@@ -161,16 +174,20 @@ with st.expander("🔧 API Status"):
                 st.json(health_response.json())
             else:
                 st.warning(f"⚠️ API responded with status: {health_response.status_code}")
-        except:
-            st.error(f"❌ API is not accessible. Make sure it's running at {BACKEND_URL}")
+        except Exception as e:
+            st.error(f"❌ API is not accessible: {str(e)}")
 
 # Retrain Model button
-if st.button("Retrain Model"):
-    with st.spinner("Retraining model..."):
-        response = requests.post(f"{BACKEND_URL}/retrain")
-        if response.status_code == 200:
-            st.success("Model retrained successfully!")
-            st.json(response.json())
-        else:
-            st.error("Retraining failed.")
-            st.json(response.json())
+with st.expander("🔄 Model Management"):
+    if st.button("Retrain Model"):
+        with st.spinner("Retraining model..."):
+            try:
+                response = requests.post(f"{BACKEND_URL}/retrain", timeout=300)  # 5 min timeout
+                if response.status_code == 200:
+                    st.success("Model retrained successfully!")
+                    st.json(response.json())
+                else:
+                    st.error(f"Retraining failed. Status: {response.status_code}")
+                    st.code(response.text)
+            except Exception as e:
+                st.error(f"Retraining error: {str(e)}")
