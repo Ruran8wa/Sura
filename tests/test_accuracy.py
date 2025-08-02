@@ -4,16 +4,13 @@ import json
 from pathlib import Path
 
 def test_accuracy():
-    """Test model accuracy on test dataset"""
     base_url = "http://127.0.0.1:8000"
     
-    # Test samples from each class
     test_cases = []
     
-    # Get male test images
     male_dir = Path("data/test/male")
     if male_dir.exists():
-        male_files = list(male_dir.glob("*.jpg"))[:10]  # Test 10 samples
+        male_files = list(male_dir.glob("*.jpg"))[:10]
         for file in male_files:
             test_cases.append((str(file), "male"))
     

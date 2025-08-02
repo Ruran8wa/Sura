@@ -18,7 +18,6 @@ EPOCHS = 10
 LEARNING_RATE = 1e-4
 
 def create_model():
-    """Create and compile the gender classification model"""
     base_model = MobileNetV2(input_shape=(*IMG_SIZE, 3), include_top=False, weights='imagenet')
     base_model.trainable = False
 
@@ -34,15 +33,12 @@ def create_model():
     return model
 
 def retrain():
-    """Retrain the gender classification model"""
     try:
         print("[INFO] Starting retraining process...")
         
-        # Check if training directory exists
         if not os.path.exists(TRAIN_DIR):
             raise FileNotFoundError(f"Training directory not found: {TRAIN_DIR}")
         
-        # Create models directory if it doesn't exist
         os.makedirs(MODEL_DIR, exist_ok=True)
         
         print("[INFO] Loading data...")
@@ -82,12 +78,10 @@ def retrain():
             verbose=1
         )
 
-        # Save model with timestamp
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         model_path = os.path.join(MODEL_DIR, f"gender_classifier_v2_{timestamp}.keras")
         model.save(model_path)
         
-        # Also save as default model
         default_path = os.path.join(MODEL_DIR, "gender_classifier.keras")
         model.save(default_path)
 

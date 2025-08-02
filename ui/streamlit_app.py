@@ -1,10 +1,7 @@
-# ui/streamlit_app.py
-
 import streamlit as st
 import requests
 from PIL import Image
 
-# Configuration
 BACKEND_URL = "http://localhost:8080"
 API_URL = f"{BACKEND_URL}/predict-file"
 
@@ -64,7 +61,6 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
 
-# Simple status check
 if st.button("Check API Status"):
     try:
         response = requests.get(f"{BACKEND_URL}/", timeout=5)
@@ -75,7 +71,6 @@ if st.button("Check API Status"):
     except:
         st.error("❌ API is not accessible")
 
-# Retrain option
 if st.button("Retrain Model"):
     with st.spinner("Retraining..."):
         try:

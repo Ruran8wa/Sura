@@ -7,15 +7,9 @@ class GenderClassifierUser(HttpUser):
     wait_time = between(1, 3)
     
     def on_start(self):
-        """Setup method called when a user starts"""
-        # Create a small test image (1x1 pixel PNG) for testing
-        # In a real scenario, you would load actual test images
         self.test_image_base64 = self.create_test_image_base64()
     
     def create_test_image_base64(self):
-        """Create a small test image in base64 format"""
-        # Simple 1x1 pixel PNG in base64
-        # This is just for load testing - replace with real images for actual testing
         small_png_base64 = (
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
         )
@@ -23,7 +17,6 @@ class GenderClassifierUser(HttpUser):
     
     @task(3)
     def health_check(self):
-        """Test the health check endpoint"""
         with self.client.get("/", catch_response=True) as response:
             if response.status_code == 200:
                 response.success()
@@ -32,7 +25,6 @@ class GenderClassifierUser(HttpUser):
     
     @task(10)
     def predict_base64(self):
-        """Test the base64 prediction endpoint"""
         payload = {
             "image": self.test_image_base64
         }
@@ -55,7 +47,6 @@ class GenderClassifierUser(HttpUser):
     
     @task(2)
     def model_info(self):
-        """Test the model info endpoint"""
         with self.client.get("/model_info", catch_response=True) as response:
             if response.status_code == 200:
                 try:
@@ -71,7 +62,6 @@ class GenderClassifierUser(HttpUser):
     
     @task(1)
     def predict_batch_simulation(self):
-        """Simulate batch prediction by making multiple single predictions"""
         batch_size = random.randint(2, 5)
         
         for i in range(batch_size):
@@ -97,12 +87,11 @@ class GenderClassifierUser(HttpUser):
                     response.failure(f"Batch prediction {i+1} - Failed to parse JSON: {str(e)}")
                     break
             
-            if i == batch_size - 1:  # All predictions successful
+            if i == batch_size - 1:
                 response.success()
 
 class HighLoadUser(HttpUser):
-    """User class for high-load testing scenarios"""
-    wait_time = between(0.1, 0.5)  # Shorter wait time for higher load
+    wait_time = between(0.1, 0.5)
     
     def on_start(self):
         self.test_image_base64 = (
@@ -111,7 +100,6 @@ class HighLoadUser(HttpUser):
     
     @task
     def rapid_predictions(self):
-        """Rapid-fire predictions for stress testing"""
         payload = {
             "image": self.test_image_base64
         }
@@ -125,12 +113,10 @@ class HighLoadUser(HttpUser):
                 response.failure(f"Rapid prediction failed: {response.status_code}")
 
 class ErrorTestingUser(HttpUser):
-    """User class for testing error handling"""
     wait_time = between(2, 5)
     
     @task
     def test_invalid_image(self):
-        """Test with invalid base64 image data"""
         payload = {
             "image": "invalid_base64_data"
         }
@@ -138,7 +124,6 @@ class ErrorTestingUser(HttpUser):
         with self.client.post("/predict_base64", 
                              json=payload,
                              catch_response=True) as response:
-            # We expect this to fail, so a 500 status is acceptable
             if response.status_code in [400, 500]:
                 response.success()
             else:
@@ -146,7 +131,6 @@ class ErrorTestingUser(HttpUser):
     
     @task
     def test_missing_image(self):
-        """Test with missing image data"""
         payload = {}
         
         with self.client.post("/predict_base64", 
@@ -159,17 +143,14 @@ class ErrorTestingUser(HttpUser):
     
     @task
     def test_invalid_endpoint(self):
-        """Test invalid endpoint"""
         with self.client.get("/invalid_endpoint", catch_response=True) as response:
             if response.status_code == 404:
                 response.success()
             else:
                 response.failure(f"Expected 404 for invalid endpoint, got: {response.status_code}")
 
-# Custom tasks for specific testing scenarios
 @task
 def stress_test_prediction(self):
-    """High-frequency prediction testing"""
     payload = {
         "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
     }
@@ -178,9 +159,7 @@ def stress_test_prediction(self):
     if response.status_code != 200:
         print(f"Stress test failed: {response.status_code}")
 
-# Example custom user class combining different behaviors
 class MixedBehaviorUser(HttpUser):
-    """User that exhibits mixed behavior patterns"""
     wait_time = between(1, 4)
     
     def on_start(self):
@@ -190,16 +169,13 @@ class MixedBehaviorUser(HttpUser):
     
     @task(5)
     def normal_prediction(self):
-        """Normal prediction behavior"""
         payload = {"image": self.test_image_base64}
         self.client.post("/predict_base64", json=payload)
     
     @task(2)
     def check_health(self):
-        """Occasionally check health"""
         self.client.get("/")
     
     @task(1)
     def get_model_info(self):
-        """Occasionally get model info"""
         self.client.get("/model_info")
