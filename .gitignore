@@ -5,14 +5,11 @@ __pycache__/
 *.pyo
 *.pyd
 data/
-models/
 checkpoints/
 logs/
 .DS_Store
 *.sqlite3
 *.db
-*.h5
-*.keras
 *.ckpt
 *.log
 *.tmp
